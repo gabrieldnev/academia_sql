@@ -67,3 +67,69 @@ INSERT INTO itens_matricula (matricula_id, modalidade_id, duracao_meses, valor_m
     (2, 3, 6, 79.90, 0.00),
     (3, 2, 12, 119.90, 30.00),
     (4, 1, 3, 199.90, 100.00);
+
+-- Q1
+CREATE OR REPLACE VIEW vw_modalidades_custo_estimado AS
+SELECT
+    m.nome AS modalidade,
+    m.sala,
+    p.nome AS plano,
+    ROUND(p.valor_mensal_base * 1.10, 2) AS valor_mensal_ajustado
+FROM modalidades m
+JOIN planos p ON p.id = m.plano_id
+ORDER BY valor_mensal_ajustado DESC;
+
+-- Q2
+CREATE OR REPLACE VIEW vw_matriculas_ativas AS
+SELECT
+    a.nome AS aluno,
+    a.cpf,
+    mo.nome AS modalidade,
+    mo.sala,
+    im.duracao_meses,
+    mt.data_inicio
+FROM matriculas mt
+JOIN alunos a           ON a.id = mt.aluno_id
+JOIN itens_matricula im ON im.matricula_id = mt.id
+JOIN modalidades mo     ON mo.id = im.modalidade_id
+WHERE mt.status = 'Ativa';
+
+-- Q3    
+CREATE OR REPLACE VIEW vw_alunos_vip AS
+SELECT
+    a.nome AS aluno,
+    COUNT(DISTINCT mt.id) AS qtd_contratos_ativos,
+    SUM(im.valor_mensal_aplicado * im.duracao_meses + im.taxa_adesao) AS valor_total_investido
+FROM alunos a
+JOIN matriculas mt      ON mt.aluno_id = a.id
+JOIN itens_matricula im ON im.matricula_id = mt.id
+WHERE mt.status = 'Ativa'
+GROUP BY a.id, a.nome
+HAVING SUM(im.valor_mensal_aplicado * im.duracao_meses + im.taxa_adesao) > 1000.00;
+
+-- Q4
+SELECT
+    m.id,
+    m.nome AS modalidade,
+    m.sala,
+    m.capacidade_maxima,
+    p.nome AS plano,
+    p.valor_mensal_base
+FROM modalidades m
+JOIN planos p ON p.id = m.plano_id
+WHERE m.capacidade_maxima >= 15
+  AND p.valor_mensal_base > 100.00
+  AND m.disponivel = TRUE;
+
+-- Q5
+CREATE OR REPLACE VIEW vw_faturamento_medio_plano AS
+SELECT
+    p.nome AS plano,
+    SUM(im.valor_mensal_aplicado * im.duracao_meses + im.taxa_adesao) AS faturamento_total,
+    ROUND(AVG(im.duracao_meses), 2) AS media_duracao_meses
+FROM planos p
+JOIN modalidades m      ON m.plano_id = p.id
+JOIN itens_matricula im ON im.modalidade_id = m.id
+JOIN matriculas mt      ON mt.id = im.matricula_id
+WHERE mt.status = 'Ativa'
+GROUP BY p.id, p.nome;
